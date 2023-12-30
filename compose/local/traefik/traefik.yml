@@ -1,0 +1,74 @@
+log:
+  level: INFO
+
+################################################################
+# API and dashboard configuration
+################################################################
+
+api:
+  insecure: true
+
+  dashboard: true
+
+entryPoints:
+  local-web:
+    address: ":80"
+
+http:
+  routers:
+    django-local:
+      rule: "Host(`polymarq-backend.localhost`)"
+      entryPoints:
+        - local-web
+      # middlewares:
+      #   - csrf
+      service: django-local
+
+    mailhog-local:   # Define a new router for MailHog
+      rule: "Host(`polymarq-mailhog.localhost`)"
+      entryPoints:
+        - local-web   # Use the 'local-web' entry point
+      service: mailhog-local   # Route requests to the 'mailhog' service
+
+    smsapi2email-local:   # Define a new router for MailHog
+      rule: "Host(`polymarq-smsapi2email.localhost`)"
+      entryPoints:
+        - local-web   # Use the 'local-web' entry point
+      service: smsapi2email-local   # Route requests to the 'mailhog' service
+
+    pgadmin-local:   # Define a new router for MailHog
+      rule: "Host(`polymarq-pgadmin.localhost`)"
+      entryPoints:
+        - local-web   # Use the 'local-web' entry point
+      service: pgadmin-local   # Route requests to the 'mailhog' service
+
+  # middlewares:
+  #   csrf:
+  #     headers:
+  #       hostsProxyHeaders: ['X-CSRFToken']
+
+  services:
+    django-local:
+      loadBalancer:
+        servers:
+          - url: http://django:8000
+
+    mailhog-local:
+      loadBalancer:
+        servers:
+          - url: http://mailhog:8025
+
+    smsapi2email-local:
+      loadBalancer:
+        servers:
+          - url: http://smsapi2email:8080
+
+    pgadmin-local:
+      loadBalancer:
+        servers:
+          - url: http://pgadmin:80
+
+providers:
+  file:
+    filename: /etc/traefik/traefik.yml
+    watch: true

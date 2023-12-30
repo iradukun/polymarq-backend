@@ -1,0 +1,135 @@
+version: "3"
+
+volumes:
+  polymarq_backend_local_postgres_data: {}
+  polymarq_backend_local_postgres_data_backups: {}
+  polymarq_backend_local_traefik: {}
+  polymarq_backend_local_mailhog_data: {}
+  polymarq_backend_local_pgadmin_data: {}
+
+services:
+  django: &django
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: polymarq_backend_local_django
+    container_name: polymarq_backend_local_django
+    depends_on:
+      - postgres
+      # - redis
+      - mailhog
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    # ports:
+    #   - "8000:8000"
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: polymarq_backend_production_postgres
+    container_name: polymarq_backend_local_postgres
+    volumes:
+      - polymarq_backend_local_postgres_data:/var/lib/postgresql/data
+      - polymarq_backend_local_postgres_data_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: polymarq_backend_local_pgadmin
+    restart: always
+    # ports:
+    #   - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@polymarqbackend.com
+      PGADMIN_DEFAULT_PASSWORD: 1234qwer#
+    volumes:
+      - polymarq_backend_local_pgadmin_data:/var/lib/pgadmin
+
+  # docs:
+  #   image: polymarq_backend_local_docs
+  #   container_name: polymarq_backend_local_docs
+  #   build:
+  #     context: .
+  #     dockerfile: ./compose/local/docs/Dockerfile
+  #   env_file:
+  #     - ./.envs/.local/.django
+  #   volumes:
+  #     - ./docs:/docs:z
+  #     - ./config:/app/config:z
+  #     - ./polymarq_backend:/app/polymarq_backend:z
+  #   ports:
+  #     - '9000:9000'
+  #   command: /start-docs
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    container_name: polymarq_backend_local_mailhog
+    volumes:
+    - polymarq_backend_local_mailhog_data:/data
+    # ports:
+    #   - "8025:8025"
+
+  smsapi2email:
+    image: krzysbaranski/smsapi2email
+    container_name: polymarq_backend_local_smsapi2email
+    environment:
+      - DOMAIN=polymarq.com
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+    # ports:
+    #   - "8088:8080"
+
+  # redis:
+  #   image: redis:6
+  #   container_name: polymarq_backend_local_redis
+
+  # celeryworker:
+  #   <<: *django
+  #   image: polymarq_backend_local_celeryworker
+  #   container_name: polymarq_backend_local_celeryworker
+  #   depends_on:
+  #     - redis
+  #     - postgres
+  #     - mailhog
+  #   ports: []
+  #   command: /start-celeryworker
+
+  # celerybeat:
+  #   <<: *django
+  #   image: polymarq_backend_local_celerybeat
+  #   container_name: polymarq_backend_local_celerybeat
+  #   depends_on:
+  #     - redis
+  #     - postgres
+  #     - mailhog
+  #   ports: []
+  #   command: /start-celerybeat
+
+  # flower:
+  #   <<: *django
+  #   image: polymarq_backend_local_flower
+  #   container_name: polymarq_backend_local_flower
+  #   ports:
+  #     - '5555:5555'
+  #   command: /start-flower
+
+  traefik:
+    build:
+      context: .
+      dockerfile: ./compose/local/traefik/Dockerfile
+    image: polymarq_backend_local_traefik
+    depends_on:
+      - django
+      - mailhog
+    volumes:
+      - polymarq_backend_local_traefik:/etc/traefik/acme
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:8080:8080"
+      # - "0.0.0.0:8088:8080"
